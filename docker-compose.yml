@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  user-register:
+    build: .
+    environment:
+      # User Information
+      - USER_NAME=Test User
+      - USER_EMAIL=test.user@example.com
+      - CUSTOMER_NAME=TechCorp Solutions
+      - ROLE_NAME=customer_account_owner
+      
+      # Database Configuration
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=scaffold_db
+      
+      # NATS Configuration
+      - NATS_URL=nats://nats:4222
+      - NATS_STREAM=user_events
+      - NATS_SUBJECT=users.registered
+      - NATS_USER=admin
+      - NATS_PASSWORD=admin
+      
+      # Additional metadata
+      - ENVIRONMENT=docker-compose
+      - SOURCE_SYSTEM=local_testing
+    depends_on:
+      - mysql
+      - nats
+    networks:
+      - app-network
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=scaffold_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database_schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    networks:
+      - app-network
+
+  nats:
+    image: nats:latest
+    command: [
+      "--jetstream",
+      "--user", "admin",
+      "--pass", "admin"
+    ]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    networks:
+      - app-network
+
+volumes:
+  mysql_data:
+
+networks:
+  app-network:
+    driver: bridge

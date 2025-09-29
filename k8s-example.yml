@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-registration-config
+  namespace: default
+data:
+  DB_HOST: "mysql-service"
+  DB_PORT: "3306"
+  DB_NAME: "scaffold_db"
+  NATS_URL: "nats://nats-service:4222"
+  NATS_STREAM: "user_events"
+  NATS_SUBJECT: "users.registered"
+  ENVIRONMENT: "kubernetes"
+  SOURCE_SYSTEM: "k8s_job"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: user-registration-secrets
+  namespace: default
+type: Opaque
+stringData:
+  DB_USER: "your-db-user"
+  DB_PASSWORD: "your-db-password"
+  NATS_USER: "your-nats-user"
+  NATS_PASSWORD: "your-nats-password"
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: register-user
+  namespace: default
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: user-register
+        image: ghcr.io/colinjlacy/knapscen-register-users:latest
+        env:
+        # User-specific variables (customize for each user)
+        - name: USER_NAME
+          value: "John Smith"
+        - name: USER_EMAIL
+          value: "john.smith@techcorp.com"
+        - name: CUSTOMER_NAME
+          value: "TechCorp Solutions"
+        - name: ROLE_NAME
+          value: "customer_account_owner"
+        
+        # Configuration from ConfigMap
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: user-registration-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: user-registration-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: user-registration-config
+              key: DB_NAME
+        - name: NATS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: user-registration-config
+              key: NATS_URL
+        - name: NATS_STREAM
+          valueFrom:
+            configMapKeyRef:
+              name: user-registration-config
+              key: NATS_STREAM
+        - name: NATS_SUBJECT
+          valueFrom:
+            configMapKeyRef:
+              name: user-registration-config
+              key: NATS_SUBJECT
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: user-registration-config
+              key: ENVIRONMENT
+        - name: SOURCE_SYSTEM
+          valueFrom:
+            configMapKeyRef:
+              name: user-registration-config
+              key: SOURCE_SYSTEM
+        
+        # Secrets
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: user-registration-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: user-registration-secrets
+              key: DB_PASSWORD
+        - name: NATS_USER
+          valueFrom:
+            secretKeyRef:
+              name: user-registration-secrets
+              key: NATS_USER
+        - name: NATS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: user-registration-secrets
+              key: NATS_PASSWORD
+        
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      
+      # Optional: Add service account if needed for RBAC
+      # serviceAccountName: user-registration-sa
