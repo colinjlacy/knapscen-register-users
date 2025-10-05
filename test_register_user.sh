@@ -50,7 +50,7 @@ setup_common_env() {
     export DB_NAME="bassline-boogie"
 
     # NATS JetStream Configuration
-    export NATS_URL="nats://localhost:40953"
+    export NATS_SERVER="nats://localhost:40953"
     export NATS_STREAM="customer-onboarding"
     export NATS_SUBJECT="user-saved"
     export NATS_USER="admin"

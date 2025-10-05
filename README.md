@@ -51,7 +51,7 @@ The script requires the following environment variables:
 - `DB_NAME`: Database name
 
 **NATS Connection (required):**
-- `NATS_URL`: NATS server URL (e.g., nats://localhost:4222)
+- `NATS_SERVER`: NATS server URL (e.g., nats://localhost:4222)
 - `NATS_STREAM`: JetStream stream name
 - `NATS_SUBJECT`: Subject to publish events to
 - `NATS_USER`: NATS username (optional, for authenticated servers)

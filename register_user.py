@@ -19,7 +19,7 @@ Database Connection (required):
 - DB_NAME: Database name
 
 NATS Connection (required):
-- NATS_URL: NATS server URL
+- NATS_SERVER: NATS server URL
 - NATS_STREAM: JetStream stream name
 - NATS_SUBJECT: Subject to publish to
 - NATS_USER: NATS username
@@ -73,7 +73,7 @@ class DatabaseConfig:
 @dataclass
 class NATSConfig:
     """Data class for NATS configuration"""
-    url: str
+    server: str
     stream: str
     subject: str
     user: str
@@ -106,7 +106,7 @@ def get_database_config() -> DatabaseConfig:
 def get_nats_config() -> NATSConfig:
     """Extract NATS configuration from environment variables"""
     return NATSConfig(
-        url=get_env_var('NATS_URL'),
+        server=get_env_var('NATS_SERVER'),
         stream=get_env_var('NATS_STREAM'),
         subject=get_env_var('NATS_SUBJECT'),
         user=get_env_var('NATS_USER'),
@@ -234,7 +234,7 @@ async def publish_event(nats_config: NATSConfig, event_data: Dict[str, Any], use
     """Publish user registration event to NATS JetStream"""
     try:
         # Connect to NATS with optional authentication
-        connect_options = {"servers": [nats_config.url]}
+        connect_options = {"servers": [nats_config.server]}
         connect_options["user"] = nats_config.user
         connect_options["password"] = nats_config.password
             

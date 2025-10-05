@@ -7,7 +7,7 @@ data:
   DB_HOST: "mysql-service"
   DB_PORT: "3306"
   DB_NAME: "scaffold_db"
-  NATS_URL: "nats://nats-service:4222"
+  NATS_SERVER: "nats://nats-service:4222"
   NATS_STREAM: "user_events"
   NATS_SUBJECT: "users.registered"
   ENVIRONMENT: "kubernetes"
@@ -66,11 +66,11 @@ spec:
             configMapKeyRef:
               name: user-registration-config
               key: DB_NAME
-        - name: NATS_URL
+        - name: NATS_SERVER
           valueFrom:
             configMapKeyRef:
               name: user-registration-config
-              key: NATS_URL
+              key: NATS_SERVER
         - name: NATS_STREAM
           valueFrom:
             configMapKeyRef:
