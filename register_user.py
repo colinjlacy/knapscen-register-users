@@ -3,12 +3,22 @@
 User Registration Script
 
 This script reads user information from environment variables, registers the user
-in the MySQL database, and publishes an event to NATS JetStream.
+in the MySQL database, and publishes a CloudEvent-compliant event to NATS JetStream.
+
+The published event follows the CloudEvent 1.0 specification with the following structure:
+- specversion: "1.0"
+- type: "disco.knapscen.user.saved"
+- source: "knapscen.disco"
+- subject: "user-saved-{USER_ID}-{CUSTOMER_NAME}"
+- id: "evt-user-{TIMESTAMP}"
+- time: ISO 8601 timestamp
+- datacontenttype: "application/json"
+- data: User information payload
 
 Required Environment Variables:
 - USER_NAME: Full name of the user
 - USER_EMAIL: Email address of the user
-- CUSTOMER_ID: UUID of the customer (or use CUSTOMER_NAME to lookup)
+- CUSTOMER_NAME: Name of the corporate customer (will lookup ID)
 - ROLE_ID: UUID of the role (or use ROLE_NAME to lookup)
 
 Database Connection (required):
@@ -35,6 +45,8 @@ import sys
 import json
 import logging
 import asyncio
+import uuid
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
 
@@ -145,15 +157,11 @@ def get_user_info(connection) -> UserInfo:
     name = get_env_var('USER_NAME')
     email = get_env_var('USER_EMAIL')
     
-    # Get customer ID (either directly or via lookup)
-    customer_id = get_env_var('CUSTOMER_ID', required=False)
-    customer_name = get_env_var('CUSTOMER_NAME', required=False)
-    
-    if not customer_id and not customer_name:
-        raise UserRegistrationError("Either CUSTOMER_ID or CUSTOMER_NAME must be provided")
-    
-    if customer_name and not customer_id:
-        customer_id = lookup_customer_id(connection, customer_name)
+    # Get customer ID via lookup from customer name
+    customer_name = get_env_var('CUSTOMER_NAME')
+    if not customer_name:
+        raise UserRegistrationError("CUSTOMER_NAME must be provided")
+    customer_id = lookup_customer_id(connection, customer_name)
     
     # Get role ID (either directly or via lookup)
     role_id = get_env_var('ROLE_ID', required=False)
@@ -218,7 +226,7 @@ def prepare_event_data() -> Dict[str, Any]:
     event_data = {}
     
     user_vars = [
-        'USER_NAME', 'USER_EMAIL', 'CUSTOMER_ID', 'CUSTOMER_NAME', 
+        'USER_NAME', 'USER_EMAIL', 'CUSTOMER_NAME', 
         'ROLE_ID', 'ROLE_NAME'
     ]
     
@@ -228,6 +236,38 @@ def prepare_event_data() -> Dict[str, Any]:
             event_data[var.lower()] = value
         
     return event_data
+
+
+def create_cloudevent_payload(user_id: str, event_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Create a CloudEvent-compliant payload"""
+    # Get current timestamp in ISO 8601 format
+    current_time = datetime.now(timezone.utc).isoformat()
+    
+    # Generate a unique event ID
+    event_id = f"evt-user-{int(datetime.now().timestamp())}"
+    
+    # Get customer name for the subject
+    customer_name = event_data.get('customer_name', 'unknown')
+    
+    # Create CloudEvent-compliant payload
+    cloudevent_payload = {
+        "specversion": "1.0",
+        "type": "disco.knapscen.user.saved",
+        "source": "knapscen.disco",
+        "subject": f"user-saved-{user_id}-{customer_name}",
+        "id": event_id,
+        "time": current_time,
+        "datacontenttype": "application/json",
+        "data": {
+            "customer_name": event_data.get('customer_name', ''),
+            "user_name": event_data.get('user_name', ''),
+            "user_email": event_data.get('user_email', ''),
+            "user_role": event_data.get('role_name', ''),
+            "email_template": "welcome"
+        }
+    }
+    
+    return cloudevent_payload
 
 
 async def publish_event(nats_config: NATSConfig, event_data: Dict[str, Any], user_id: str):
@@ -241,13 +281,8 @@ async def publish_event(nats_config: NATSConfig, event_data: Dict[str, Any], use
         nc = await nats.connect(**connect_options)
         js = nc.jetstream()
         
-        # Prepare the event payload
-        event_payload = {
-            'event_type': 'user_registered',
-            'user_id': user_id,
-            'timestamp': str(asyncio.get_event_loop().time()),
-            'data': event_data
-        }
+        # Create CloudEvent-compliant payload
+        event_payload = create_cloudevent_payload(user_id, event_data)
         
         # Publish to JetStream
         await js.publish(
@@ -255,7 +290,7 @@ async def publish_event(nats_config: NATSConfig, event_data: Dict[str, Any], use
             payload=json.dumps(event_payload).encode('utf-8')
         )
         
-        logger.info(f"Successfully published event to {nats_config.subject}")
+        logger.info(f"Successfully published CloudEvent to {nats_config.subject}")
         
         # Close connection
         await nc.close()
