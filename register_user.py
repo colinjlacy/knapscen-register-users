@@ -244,14 +244,14 @@ def create_cloudevent_payload(user_id: str, event_data: Dict[str, Any]) -> Dict[
     current_time = datetime.now(timezone.utc).isoformat()
     
     # Generate a unique event ID
-    event_id = f"evt-user-{int(datetime.now().timestamp())}"
+    event_id = str(uuid.uuid4())[:8]
     
     # Create CloudEvent-compliant payload
     cloudevent_payload = {
         "specversion": "1.0",
         "type": "disco.knapscen.user.saved",
         "source": "knapscen.disco",
-        "subject": f"user-saved-{user_id}",
+        "subject": f"user-{user_id}",
         "id": event_id,
         "time": current_time,
         "datacontenttype": "application/json",
